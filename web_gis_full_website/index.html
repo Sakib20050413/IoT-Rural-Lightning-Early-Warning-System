@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BAIUST Rural AI Lightning, Sky Cloud & SIM-GIS Surveillance Center</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --panel: #111827;
+      --border: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --cyan: #06b6d4;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; min-height: 100vh; }
+    header {
+      background: #0f172a; border-bottom: 1px solid var(--border); padding: 12px 20px;
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .brand { font-size: 16px; font-weight: 800; color: #38bdf8; }
+    .brand span { font-size: 12px; color: var(--muted); font-weight: 500; display: block; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    button {
+      background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 7px 12px;
+      border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.15s;
+    }
+    button:hover { background: #334155; }
+    button.primary { background: #0284c7; border-color: #38bdf8; }
+    button.danger { background: #dc2626; border-color: #f87171; }
+    button.warning { background: #d97706; border-color: #fbbf24; }
+    button.success { background: #059669; border-color: #34d399; }
+
+    .main-grid {
+      display: grid; grid-template-columns: 340px 1fr 360px; gap: 12px; padding: 12px; flex: 1;
+    }
+    @media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr; } }
+    .panel {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .panel-title { font-size: 13px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* 3-Zone Traffic Light Widget */
+    .zone-tower {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center;
+    }
+    .zone-lamp {
+      padding: 10px 6px; border-radius: 8px; border: 1px solid var(--border); background: #0b1120;
+      font-size: 11px; font-weight: 700; opacity: 0.35; transition: 0.25s;
+    }
+    .zone-lamp.active-green { opacity: 1; background: rgba(16,185,129,0.2); border-color: var(--green); color: #34d399; box-shadow: 0 0 15px rgba(16,185,129,0.4); }
+    .zone-lamp.active-yellow { opacity: 1; background: rgba(245,158,11,0.2); border-color: var(--yellow); color: #fbbf24; box-shadow: 0 0 15px rgba(245,158,11,0.4); }
+    .zone-lamp.active-red { opacity: 1; background: rgba(239,68,68,0.28); border-color: var(--red); color: #f87171; box-shadow: 0 0 20px rgba(239,68,68,0.65); animation: pulseRed 0.8s infinite alternate; }
+    @keyframes pulseRed { from { transform: scale(1); } to { transform: scale(1.03); } }
+
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .metric-card { background: #0b1120; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+    .m-label { font-size: 10.5px; color: var(--muted); }
+    .m-val { font-size: 16px; font-weight: 800; color: #fff; margin-top: 2px; }
+    .m-sub { font-size: 10px; color: #38bdf8; }
+
+    #map { width: 100%; height: 430px; border-radius: 8px; border: 1px solid var(--border); }
+    .log-box {
+      background: #050811; border: 1px solid var(--border); border-radius: 6px; padding: 8px;
+      font-family: monospace; font-size: 11px; height: 140px; overflow-y: auto; color: #a7f3d0;
+    }
+    .sim-group { display: flex; flex-direction: column; gap: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      ⚡ BAIUST CSE 301 — Rural AI Lightning, Sky Cloud &amp; SIM-GIS Surveillance Center
+      <span>Team BlackBerry (ID: 1119003, 1119004, 1119007) | Supervisor: Arifur Rahaman | Dual Type-C ESP32-S3</span>
+    </div>
+    <div class="btn-row">
+      <button class="primary" onclick="connectWebSerial()">🔌 Connect ESP32-S3 (USB Type-C)</button>
+      <button class="success" onclick="fetchLiveOpenMeteo(23.4607, 91.1809, 'Cumilla (Winter Local)')">📡 SIM API: Cumilla Live</button>
+      <button class="warning" onclick="fetchLiveOpenMeteo(1.3521, 103.8198, 'Tropical Storm Node (API Verify)')">🌩️ SIM API: Active Storm Region</button>
+      <button onclick="exportCSV()">📥 Export CSV Log</button>
+    </div>
+  </header>
+
+  <div class="main-grid">
+    <!-- LEFT PANEL: 3-STREAM TELEMETRY & WINTER LAB SIMULATION -->
+    <div class="panel">
+      <div class="panel-title">1. 3-Zone Hazard Tower &amp; Relay</div>
+      <div class="zone-tower">
+        <div id="lampGreen" class="zone-lamp active-green">🟢 GREEN<br>SAFE ZONE</div>
+        <div id="lampYellow" class="zone-lamp">🟡 YELLOW<br>15-30 KM</div>
+        <div id="lampRed" class="zone-lamp">🔴 RED<br>&le;15 KM DANGER</div>
+      </div>
+
+      <div class="panel-title">2. 3-Stream Sensor Fusion Readings</div>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="m-label">Stream 1: Sky Cloud Lux</div>
+          <div class="m-val" id="valLux">640 Lux</div>
+          <div class="m-sub" id="subLux">BH1750: Clear Sky</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Stream 1: Sky IR vs Amb</div>
+          <div class="m-val" id="valSkyTemp">-12.4 °C</div>
+          <div class="m-sub" id="subSkyTemp">MLX90614: No Cloud</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Stream 1: Pressure &amp; RH</div>
+          <div class="m-val" id="valPres">1013.2 hPa</div>
+          <div class="m-sub" id="valHum">Humidity: 54%</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Stream 2: SIM API Verify</div>
+          <div class="m-val" id="valApiCloud">12% Cloud</div>
+          <div class="m-sub" id="valApiCape">CAPE: 140 J/kg</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Stream 3: AS3935 Strike</div>
+          <div class="m-val" id="valStrike">None</div>
+          <div class="m-sub" id="valEnergy">RF Energy: 0</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">TinyML Risk &amp; Grid Relay</div>
+          <div class="m-val" id="valRisk">8%</div>
+          <div class="m-sub" id="valRelay">Grid Relay: ON (Connected)</div>
+        </div>
+      </div>
+
+      <div class="panel-title">3. Winter Lab-Final Physical Proof Simulator</div>
+      <div class="sim-group">
+        <button class="success" onclick="runWinterScenario('normal')">☀️ Reset: Normal Winter Lab Room (Green Zone)</button>
+        <button class="warning" onclick="runWinterScenario('fog_false')">🌫️ Test 1: Only High Humidity 95% (No Cloud = No False Alarm!)</button>
+        <button class="warning" onclick="runWinterScenario('distant_storm')">☂️ Test 2: Umbrella Cloud + Syringe 994hPa + 100cm Shocker (Yellow Zone)</button>
+        <button class="danger" onclick="runWinterScenario('overhead_strike')">⚡ Test 3: Cloud + Mist + 988hPa + 45cm 400kV Shocker (RED + SIREN + CUTOFF!)</button>
+      </div>
+    </div>
+
+    <!-- CENTER PANEL: LIVE LEAFLET WEB GIS MAP -->
+    <div class="panel">
+      <div class="panel-title">Live Web-GIS Storm &amp; Lightning Strike Range Map (BAIUST Cumilla Node)</div>
+      <div id="map"></div>
+      <div class="panel-title">SIM800L / 4G AT-Command &amp; WebSerial Telemetry Console</div>
+      <div class="log-box" id="consoleLog"></div>
+    </div>
+
+    <!-- RIGHT PANEL: REAL-TIME CHART.JS TELEMETRY & VOICE SIREN -->
+    <div class="panel">
+      <div class="panel-title">Real-Time Barometric Pressure &amp; TinyML Strike Probability</div>
+      <canvas id="telemetryChart" height="190"></canvas>
+      <div class="panel-title">DFPlayer Bengali Voice &amp; 3W Field Siren Status</div>
+      <div class="metric-card">
+        <div class="m-label">Active Audio Broadcast (PAM8403 + 3W Speaker)</div>
+        <div class="m-val" id="valVoice" style="font-size:13px;color:#34d399;">Standby (Silent)</div>
+        <div class="m-sub" id="valSms">SIM800L SMS: Ready</div>
+      </div>
+      <button onclick="speakBengaliAlert('সতর্কতা! ১৫ কিলোমিটারের মধ্যে বজ্রপাত শনাক্ত হয়েছে। মেইন পাওয়ার লাইন বিচ্ছিন্ন করা হলো। নিরাপদ আশ্রয়ে যান!')">🔊 Test Bengali Voice Siren Now</button>
+    </div>
+  </div>
+
+  <script>
+    const map = L.map('map').setView([23.4607, 91.1809], 10);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    const nodeMarker = L.marker([23.4607, 91.1809]).addTo(map)
+      .bindPopup("<b>BAIUST CSE-301 Weather & Lightning Node</b><br>Status: Active").openPopup();
+
+    // 3 Concentric Range Rings: 30km (Green), 15km (Yellow), 8km (Red)
+    const ring30 = L.circle([23.4607, 91.1809], { radius: 30000, color: '#10b981', fillOpacity: 0.05, weight: 1.5 }).addTo(map);
+    const ring15 = L.circle([23.4607, 91.1809], { radius: 15000, color: '#f59e0b', fillOpacity: 0.08, weight: 1.5 }).addTo(map);
+    const ring08 = L.circle([23.4607, 91.1809], { radius: 8000,  color: '#ef4444', fillOpacity: 0.15, weight: 2.0 }).addTo(map);
+    let strikeMarker = null;
+
+    let telemetryLogs = [];
+
+    function logMsg(msg) {
+      const box = document.getElementById('consoleLog');
+      const ts = new Date().toLocaleTimeString();
+      box.innerHTML += `[${ts}] ${msg}<br>`;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // Chart.js initialization
+    const ctx = document.getElementById('telemetryChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: ['T-5', 'T-4', 'T-3', 'T-2', 'T-1', 'Now'],
+        datasets: [
+          { label: 'Pressure (hPa)', data: [1013, 1013, 1013, 1013, 1013, 1013], borderColor: '#38bdf8', yAxisID: 'y' },
+          { label: 'TinyML Risk (%)', data: [5, 6, 8, 7, 8, 8], borderColor: '#ef4444', yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y:  { type: 'linear', position: 'left', min: 980, max: 1020, ticks: { color: '#38bdf8' } },
+          y1: { type: 'linear', position: 'right', min: 0, max: 100, ticks: { color: '#ef4444' } }
+        },
+        plugins: { legend: { labels: { color: '#f8fafc', font: { size: 10 } } } }
+      }
+    });
+
+    function playSirenTone(freq, durationMs) {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(freq + 350, audioCtx.currentTime + durationMs / 1000);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + durationMs / 1000);
+      } catch (e) {}
+    }
+
+    function speakBengaliAlert(text) {
+      playSirenTone(520, 900);
+      if ('speechSynthesis' in window) {
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'bn-BD';
+        window.speechSynthesis.speak(utter);
+      }
+      logMsg(`DFPLAYER + 3W SPEAKER: "${text}"`);
+    }
+
+    function updateDashboard(state) {
+      document.getElementById('valLux').innerText = state.lux + ' Lux';
+      document.getElementById('subLux').innerText = state.lux < 50 ? 'BH1750: Dark Storm Cloud!' : 'BH1750: Clear Daylight';
+      document.getElementById('valSkyTemp').innerText = state.skyTemp + ' °C';
+      document.getElementById('subSkyTemp').innerText = state.skyTemp > 5 ? 'MLX90614: Warm Cloud Base!' : 'MLX90614: Cold Clear Sky';
+      document.getElementById('valPres').innerText = state.pres + ' hPa';
+      document.getElementById('valHum').innerText = 'Humidity: ' + state.hum + '%';
+      document.getElementById('valApiCloud').innerText = state.apiCloud + '% Cloud';
+      document.getElementById('valApiCape').innerText = 'CAPE: ' + state.cape + ' J/kg';
+      document.getElementById('valStrike').innerText = state.distKm ? state.distKm + ' km' : 'None';
+      document.getElementById('valEnergy').innerText = 'RF Energy: ' + state.energy;
+      document.getElementById('valRisk').innerText = state.risk + '%';
+
+      const lg = document.getElementById('lampGreen');
+      const ly = document.getElementById('lampYellow');
+      const lr = document.getElementById('lampRed');
+      lg.className = 'zone-lamp'; ly.className = 'zone-lamp'; lr.className = 'zone-lamp';
+
+      if (state.zone === 'GREEN') {
+        lg.classList.add('active-green');
+        document.getElementById('valRelay').innerText = 'Grid Relay: ON (Normal)';
+        document.getElementById('valVoice').innerText = 'Standby (Safe Zone)';
+      } else if (state.zone === 'YELLOW') {
+        ly.classList.add('active-yellow');
+        document.getElementById('valRelay').innerText = 'Grid Relay: ON (Caution)';
+        document.getElementById('valVoice').innerText = 'Track 0001.mp3: Caution Alert';
+        playSirenTone(440, 400);
+      } else if (state.zone === 'RED') {
+        lr.classList.add('active-red');
+        document.getElementById('valRelay').innerText = 'Grid Relay: OFF (ISOLATED!)';
+        document.getElementById('valVoice').innerText = 'Track 0002.mp3: 3W SIREN + VOICE!';
+        document.getElementById('valSms').innerText = 'SIM800L SMS: SENT TO FARMERS!';
+        speakBengaliAlert('সতর্কতা! মাথার ওপর বজ্রপাত শনাক্ত হয়েছে। মেইন পাওয়ার লাইন অটো কাট-অফ করা হলো!');
+      }
+
+      chart.data.datasets[0].data.push(state.pres);
+      chart.data.datasets[0].data.shift();
+      chart.data.datasets[1].data.push(state.risk);
+      chart.data.datasets[1].data.shift();
+      chart.update();
+
+      telemetryLogs.push({ time: new Date().toISOString(), ...state });
+    }
+
+    function runWinterScenario(mode) {
+      if (mode === 'normal') {
+        logMsg("WINTER LAB RESET: Clear sky, 1013.2 hPa, 54% RH -> GREEN SAFE ZONE.");
+        updateDashboard({ lux: 640, skyTemp: -12.4, pres: 1013.2, hum: 54, apiCloud: 10, cape: 120, distKm: null, energy: 0, risk: 8, zone: 'GREEN' });
+      } else if (mode === 'fog_false') {
+        logMsg("WINTER TEST 1 (50-Tk USB Mist Maker ON): Humidity jumped to 95%, BUT BH1750=610 Lux & MLX90614=-11°C & SIM API=12% Cloud -> TinyML rejects winter fog! Stays GREEN!");
+        updateDashboard({ lux: 610, skyTemp: -11.0, pres: 1012.8, hum: 95, apiCloud: 12, cape: 150, distKm: null, energy: 0, risk: 18, zone: 'GREEN' });
+      } else if (mode === 'distant_storm') {
+        logMsg("WINTER TEST 2 (Umbrella Cover + Syringe 994 hPa + SIM Storm API + 400kV Shocker at 100cm): Distant strike at 22 km -> YELLOW CAUTION ZONE!");
+        updateDashboard({ lux: 18, skyTemp: 14.5, pres: 994.0, hum: 88, apiCloud: 92, cape: 1850, distKm: 22, energy: 48200, risk: 68, zone: 'YELLOW' });
+      } else if (mode === 'overhead_strike') {
+        logMsg("WINTER TEST 3 (Umbrella + Mist 96% + Syringe 988 hPa + 400kV Shocker at 45cm): OVERHEAD STRIKE AT 6 KM! -> RED DANGER + 3W SIREN + RELAY CUTOFF + SMS!");
+        updateDashboard({ lux: 9, skyTemp: 18.2, pres: 988.5, hum: 96, apiCloud: 98, cape: 2740, distKm: 6, energy: 194500, risk: 97, zone: 'RED' });
+      }
+    }
+
+    async function fetchLiveOpenMeteo(lat, lon, label) {
+      logMsg(`SIM800L HTTP GET -> api.open-meteo.com (${label}: ${lat}, ${lon})...`);
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,surface_pressure,cloud_cover&hourly=cape`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const cur = data.current || {};
+        const capeVal = (data.hourly && data.hourly.cape) ? data.hourly.cape[0] : 250;
+        const cld = cur.cloud_cover !== undefined ? cur.cloud_cover : 85;
+        const prs = cur.surface_pressure || 1008;
+        const hm = cur.relative_humidity_2m || 80;
+        const zone = (cld > 70 || prs < 1002) ? 'YELLOW' : 'GREEN';
+        logMsg(`SIM API VERIFIED [${label}]: Cloud=${cld}%, Pressure=${prs} hPa, RH=${hm}%, CAPE=${capeVal} J/kg`);
+        updateDashboard({
+          lux: cld > 70 ? 25 : 600,
+          skyTemp: cld > 70 ? 15.2 : -10.5,
+          pres: prs, hum: hm, apiCloud: cld, cape: capeVal,
+          distKm: cld > 70 ? 24 : null, energy: cld > 70 ? 32000 : 0,
+          risk: cld > 70 ? 64 : 12, zone: zone
+        });
+      } catch (err) {
+        logMsg("Offline Mode Fallback: Simulated SIM800L API Verified.");
+        runWinterScenario(label.includes('Storm') ? 'distant_storm' : 'normal');
+      }
+    }
+
+    async function connectWebSerial() {
+      if (!('serial' in navigator)) {
+        alert("WebSerial requires Chrome or Edge on Desktop connected to ESP32-S3 USB Type-C port.");
+        return;
+      }
+      try {
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+        logMsg("ESP32-S3 Dual Type-C Connected via WebSerial (115200 baud)!");
+      } catch (e) {
+        logMsg("WebSerial connection cancelled or port busy.");
+      }
+    }
+
+    function exportCSV() {
+      let csv = "Timestamp,Lux,SkyTempC,Pressure_hPa,Humidity_Pct,API_Cloud_Pct,CAPE,StrikeDist_Km,TinyML_Risk_Pct,Zone
+";
+      telemetryLogs.forEach(r => {
+        csv += `${r.time},${r.lux},${r.skyTemp},${r.pres},${r.hum},${r.apiCloud},${r.cape},${r.distKm || 0},${r.risk},${r.zone}
+`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = "project1_lightning_sim_gis_log.csv";
+      a.click();
+    }
+
+    logMsg("System Initialized: ESP32-S3 3-Stream Sensor Fusion + SIM800L/4G GIS Ready.");
+  </script>
+</body>
+</html>

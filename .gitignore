@@ -1,0 +1,19 @@
+# PlatformIO / Arduino / C++ Build Artifacts
+.pio/
+build/
+*.bin
+*.elf
+*.map
+
+# Python / Colab Bytecode & Virtual Env
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp
