@@ -1,6 +1,5 @@
 [![Architecture diagram](https://gitdiagram.com/diagram-badge.svg)](https://gitdiagram.com/sakib20050413/iot-rural-lightning-early-warning-system?utm_source=readme&utm_medium=badge)
 
-
 # ⚡ IoT Rural Lightning Early Warning System
 
 > **An AI-powered edge intelligence & GIS surveillance network designed for real-time lightning detection, false-alarm mitigation, and automated community warning in rural environments.**
