@@ -5,13 +5,6 @@
 
 > **An AI-powered edge intelligence & GIS surveillance network designed for real-time lightning detection, false-alarm mitigation, and automated community warning in rural environments.**
 
-[[https://img.shields.io/badge/Hardware-ESP32--S3-E7352C?style=for-the-badge&logo=espressif&logoColor=white]](https://github.com/sakib20050413/iot-rural-lightning-early-warning-system)
-[[https://img.shields.io/badge/Firmware-PlatformIO-orange?style=for-the-badge&logo=platformio&logoColor=white]](https://platformio.org/)
-[[https://img.shields.io/badge/Edge%20AI-TinyML-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white]](https://www.tensorflow.org/lite/microcontrollers)
-[[https://img.shields.io/badge/GIS-Leaflet-199900?style=for-the-badge&logo=leaflet&logoColor=white]](https://leafletjs.com/)
-[[https://img.shields.io/badge/Language-C%2B%2B%20%2F%20Arduino-00599C?style=for-the-badge&logo=cplusplus&logoColor=white]](https://isocpp.org/)
-[[https://img.shields.io/badge/License-MIT-blue?style=for-the-badge]](./LICENSE)
-
 ---
 
 ## 📌 Project Visuals
